@@ -81,6 +81,12 @@ func TestRuneStream_loop(t *testing.T) {
 		}
 		t.Errorf("[%02d] expected %+v, got %+v", i, a, b)
 	}
+	if len(actual) > min {
+		t.Errorf("%d extra item(s)", len(actual) - min)
+	}
+	if len(expected) > min {
+		t.Errorf("%d missing item(s)", len(expected) - min)
+	}
 }
 
 func TestRuneStream_boundary(t *testing.T) {
