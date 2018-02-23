@@ -57,6 +57,12 @@ func (pos *Position) Advance(ch rune, size int) {
 	}
 }
 
+// String returns a programmer-friendly string representation.
 func (pos Position) String() string {
+	return fmt.Sprintf("Position{%d, %d, %d, %v}", pos.Offset, pos.Line, pos.Column, pos.SkipNextLF)
+}
+
+// FriendlyString returns a human-friendly string representation.
+func (pos Position) FriendlyString() string {
 	return fmt.Sprintf("line %d column %d (byte offset %d)", pos.Line, pos.Column, pos.Offset)
 }
