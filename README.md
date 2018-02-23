@@ -1,21 +1,18 @@
 # go-runestream
 
-
 ![GitHub release](https://img.shields.io/github/release/chronos-tachyon/go-runestream.svg)
 [![GoDoc](https://img.shields.io/badge/godoc-reference-5272B4.svg)](http://godoc.org/github.com/chronos-tachyon/go-runestream)
 [![Build Status](https://travis-ci.org/chronos-tachyon/go-runestream.svg?branch=master)](https://travis-ci.org/chronos-tachyon/go-runestream)
 
-RuneStream provides an interface for building character lexers on top of UTF-8
-byte streams.
+RuneStream implements streaming decodes of text data.
 
-Conceptually, a RuneStream is similar to calling `ReadRune()` / `UnreadRune()`
-on a bufio.Reader.  However, RuneStream allows arbitrarily deep rune
-unreading, and provides a fairly straightforward interface for the caller to
-manage how far back that state should be kept.
+Using RuneStream is conceptually similar to using ReadRune() / UnreadRune()
+from bufio.Reader, but with unbounded backtracking and a mechanism for
+explicitly managing how deep the backtracking state goes.
 
-RuneStream also keeps track of the position of each rune within the UTF-8 byte
-stream, both in terms of the rune’s starting byte offset and in terms of
-text-oriented lines and columns.
+RuneStream also tracks the human-friendly position (lines and columns) of
+each character within the text file, and it has some convenience methods for
+extracting multi-rune sequences that match a pattern.
 
 ## Bare-bones usage
 
