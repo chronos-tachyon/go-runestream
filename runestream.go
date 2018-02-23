@@ -2,82 +2,33 @@ package runestream
 
 import (
 	"io"
-	"unicode/utf8"
 )
 
-const BlockSize = 4096
+// Options holds configurable parameters for a RuneStream.
+type Options struct {
+	// BlockSize is the number of bytes to read at a time.
+	//
+	// Default is 4096.
+	//
+	BlockSize int
 
-// savedRune represents a single Unicode character read from a byte stream.
-type savedRune struct {
-	pos   Position
-	value rune
-	size  int
-	err   error
+	// Decoder is the charset decoder for the stream.
+	//
+	// Default is UTF8Decoder{}.
+	//
+	Decoder   Decoder
 }
 
-// RuneStream is an engine for lexing runes from a byte stream.  This version of
-// RuneStream only understands UTF-8.
-//
-// Using RuneStream is conceptually similar to using ReadRune() / UnreadRune()
-// from bufio.Reader, but RuneStream adds the ability to UnreadRune() an
-// arbitrary number of times.  It also tracks the human-friendly position
-// (lines and columns) of each character within the text file, and it has some
-// convenience methods for extracting multi-rune sequences that match a
-// pattern.
-//
-// Bare-bones usage:
-//
-//	func StreamRunes(filename string, callback func(rune, int, Position)) error {
-//		f, err := os.Open("filename.txt")
-//		if err != nil {
-//			return err
-//		}
-//
-//		stream := NewRuneStream(f)
-//		var out []rune
-//		for stream.Advance() {
-//			r := stream.Rune()
-//			size := stream.Size()
-//			pos := stream.Position()
-//			callback(r, size, pos)
-//			stream.Commit()
-//		}
-//
-//		err = stream.Err()
-//		if err == io.EOF {
-//			err = nil
-//		}
-//		return err
-//	}
-//
-// Advanced usage:
-//
-//	func LexWordOrNumber(stream *RuneStream) Token {
-//		if !stream.Advance() {
-//			err := stream.Err()
-//			return ErrorToken(err)
-//		}
-//		r := stream.Rune()
-//		pos := stream.Position()
-//		if unicode.IsLetter(r) {
-//			word := []rune{r}
-//			word = stream.TakeWhile(-1, word, unicode.IsLetter)
-//			stream.Commit()
-//			return WordToken(pos, string(word))
-//		}
-//		if unicode.IsDigit(r) {
-//			number := []rune{r}
-//			number = stream.TakeWhile(-1, number, unicode.IsDigit)
-//			stream.Commit()
-//			return NumberToken(pos, string(number))
-//		}
-//		stream.Rewind()
-//		return FailToken()
-//	}
-//
+// RuneStream is an engine for lexing runes from a byte stream.
 type RuneStream struct {
 	// r is the byte stream to read.
 	r io.Reader
+
+	// d is the Decoder to use.
+	d Decoder
+
+	// bs is the BlockSize to use.
+	bs int
 
 	// bb is a byte buffer of (slightly more than) length BlockSize that
 	// will be reused as bytes are read from r.
@@ -104,34 +55,89 @@ type RuneStream struct {
 	spec uint
 }
 
+// savedRune represents a single Unicode character read from a byte stream.
+type savedRune struct {
+	pos   Position
+	value rune
+	size  int
+	err   error
+}
+
 // SavePoint is a snapshot of a stream position.
 type SavePoint struct {
 	gen  uint
 	spec uint
 }
 
-// NewRuneStream constructs a new RuneStream.
-func NewRuneStream(r io.Reader) *RuneStream {
-	return &RuneStream{
-		r:   r,
-		bb:  make([]byte, BlockSize+utf8.UTFMax),
-		pos: MakePosition(),
-	}
+// New constructs a new RuneStream.
+//
+// "New(r, o)" is exactly equivalent to allocating a zero-valued RuneStream and
+// calling "Init(r, o)" on it.
+//
+func New(r io.Reader, o Options) *RuneStream {
+	stream := new(RuneStream)
+	stream.Init(r, o)
+	return stream
 }
 
-// Reset returns this RuneStream to the newly-constructed state.
-//
-// This is useful for saving some GC overhead when prelexing multiple byte
-// streams.
-//
-func (stream *RuneStream) Reset(r io.Reader) {
+// NewRuneStream is a wrapper around New.  [DEPRECATED]
+func NewRuneStream(r io.Reader) *RuneStream {
+	return New(r, Options{})
+}
+
+// Init initializes this RuneStream with the given io.Reader and Options.
+func (stream *RuneStream) Init(r io.Reader, o Options) {
+	bs := o.BlockSize
+	if bs < 0 {
+		panic("BlockSize < 0")
+	}
+	if bs == 0 {
+		bs = 4096
+	}
+
+	d := o.Decoder
+	if d == nil {
+		d = UTF8Decoder{}
+	}
+
+	max := d.Max()
+	if max < 1 {
+		panic("Decoder returned Max() < 1")
+	}
+
+	bbsz := bs + max
+	var bb []byte
+	if len(stream.bb) == bbsz {
+		bb = stream.bb
+	} else {
+		bb = make([]byte, bbsz)
+	}
+
 	stream.r = r
+	stream.d = d
+	stream.bs = bs
+	stream.bb = bb
 	stream.b = nil
 	stream.pos.Reset()
 	stream.buf = nil
 	stream.curr = nil
 	stream.gen++
 	stream.spec = 0
+}
+
+// Reset is a wrapper around Init.  [DEPRECATED]
+func (stream *RuneStream) Reset(r io.Reader) {
+	stream.Init(r, Options{})
+}
+
+// BlockSize returns the BlockSize for the stream.
+func (stream *RuneStream) BlockSize() int {
+	return stream.bs
+}
+
+// Decoder returns the Decoder for the stream.
+func (stream *RuneStream) Decoder() Decoder {
+	return stream.d
 }
 
 // Save creates a save point.
@@ -173,12 +179,12 @@ func (stream *RuneStream) load() {
 	}
 
 	x := len(stream.b)
-	y := x + BlockSize
+	y := x + stream.bs
 	copy(stream.bb[0:x], stream.b)
 	n, err := stream.r.Read(stream.bb[x:y])
 	stream.b = stream.bb[0 : x+n]
-	for utf8.FullRune(stream.b) {
-		r, size := utf8.DecodeRune(stream.b)
+	for stream.d.FullRune(stream.b) {
+		r, size := stream.d.DecodeRune(stream.b)
 		stream.b = stream.b[size:]
 		stream.buf = append(stream.buf, savedRune{
 			pos:   stream.pos,

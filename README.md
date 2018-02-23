@@ -9,7 +9,7 @@ RuneStream provides an interface for building character lexers on top of UTF-8
 byte streams.
 
 Conceptually, a RuneStream is similar to calling `ReadRune()` / `UnreadRune()`
-on a "bufio".Reader.  However, RuneStream allows arbitrarily deep rune
+on a bufio.Reader.  However, RuneStream allows arbitrarily deep rune
 unreading, and provides a fairly straightforward interface for the caller to
 manage how far back that state should be kept.
 
