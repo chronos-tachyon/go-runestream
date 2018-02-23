@@ -143,7 +143,7 @@ func BenchmarkRuneStream_advance(b *testing.B) {
 	r := new(ZeroReader)
 	stream := NewRuneStream(r)
 	for i := 0; i < b.N; i++ {
-		// Important: "go test -bench .+ -benchmem" should report 0 allocs/op for this benchmark!
 		stream.Advance()
+		stream.Commit()
 	}
 }
