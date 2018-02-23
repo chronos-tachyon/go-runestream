@@ -1,7 +1,8 @@
 # go-runestream
 
 
-[![GoDoc](https://img.shields.io/badge/godoc-reference-5272B4.svg?style=flat-square)](http://godoc.org/github.com/chronos-tachyon/go-runestream)
+![GitHub release](https://img.shields.io/github/release/chronos-tachyon/go-runestream.svg)
+[![GoDoc](https://img.shields.io/badge/godoc-reference-5272B4.svg)](http://godoc.org/github.com/chronos-tachyon/go-runestream)
 [![Build Status](https://travis-ci.org/chronos-tachyon/go-runestream.svg?branch=master)](https://travis-ci.org/chronos-tachyon/go-runestream)
 
 RuneStream provides an interface for building character lexers on top of UTF-8
