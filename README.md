@@ -22,8 +22,11 @@ func StreamRunes(filename string, callback func(rune, int, Position)) error {
 	if err != nil {
 		return err
 	}
+	defer f.Close()
 
-	stream := NewRuneStream(f)
+	var stream RuneStream
+	stream.Init(f, Options{})
+
 	var out []rune
 	for stream.Advance() {
 		r := stream.Rune()
